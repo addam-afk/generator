@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Slug & Title Generator</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0 auto; max-width: 900px; padding: 20px; background-color: #f9f9f9; }
+        h1 { text-align: center; color: #333; }
+        .container { display: flex; flex-direction: column; gap: 30px; }
+        .form-section, .results-section { flex: 1; }
+        @media (min-width: 768px) { .container { flex-direction: row; } }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; color: #555; }
+        input[type="text"], textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        textarea { height: 180px; font-family: monospace; resize: vertical; }
+        button { width: 100%; padding: 12px; background-color: #007bff; color: white; border: none; border-radius: 5px; font-size: 16px; font-weight: 600; cursor: pointer; }
+        button:disabled { background-color: #999; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; word-break: break-all; }
+        thead { background-color: #f0f0f0; }
+        .error { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>AI Slug & Title Generator</h1>
+    <div class="container">
+        <div class="form-section">
+            <div class="form-group">
+                <label for="businessId">Business ID</label>
+                <input type="text" id="businessId" placeholder="e.g., ulb00017">
+            </div>
+            <div class="form-group">
+                <label for="businessName">Business Name</label>
+                <input type="text" id="businessName" placeholder="e.g., My Business LLC">
+            </div>
+            <div class="form-group">
+                <label for="locations">Locations (One per line, 'City, ST')</label>
+                <textarea id="locations" placeholder="Charlotte, NC..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="services">Services (One per line - Full Name)</label>
+                <textarea id="services" placeholder="Home Purchase Loans..."></textarea>
+            </div>
+            <button id="generateButton">Generate</button>
+        </div>
+        <div class="results-section">
+            <label>Generated Output</label>
+            <table id="resultsOutput">
+                <thead>
+                    <tr>
+                        <th>Slug</th>
+                        <th>Title</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody"></tbody>
+            </table>
+        </div>
+    </div>
+    <script>
+        function slugify(text) {
+            return text.toString().toLowerCase()
+                .replace(/[\s/&]+/g, '-').replace(/[^\w-]+/g, '')
+                .replace(/--+/g, '-').replace(/^-+/, '').replace(/-+$/, '');
+        }
+        function parseLocation(locationStr) {
+            const parts = locationStr.split(',');
+            if (parts.length >= 2) {
+                return { city: parts[0].trim(), state: parts[1].trim().split(' ')[0] };
+            }
+            return null;
+        }
+        async function getShortSlug(serviceName) {
+            const API_ENDPOINT = '/api/shorten'; 
+            try {
+                const response = await fetch(API_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ serviceName: serviceName })
+                });
+                if (!response.ok) {
+                    console.error("Server returned an error:", response.status);
+                    const errorData = await response.json();
+                    return `<span class="error">API-Error: ${errorData.shortSlug || 'Failed'}</span>`;
+                }
+                const data = await response.json();
+                return data.shortSlug;
+            } catch (error) {
+                console.error("Error fetching slug:", error);
+                return '<span class="error">Network-Error</span>';
+            }
+        }
+        async function generateSlugsAndTitles() {
+            const button = document.getElementById('generateButton');
+            const resultsBody = document.getElementById('resultsBody');
+            button.disabled = true;
+            button.innerText = "Asking the AI... 🧠";
+            resultsBody.innerHTML = `<tr><td colspan="2">Asking AI...</td></tr>`;
+            const businessId = document.getElementById('businessId').value;
+            const businessName = document.getElementById('businessName').value;
+            const locations = document.getElementById('locations').value.split('\n').filter(Boolean);
+            const serviceNames = document.getElementById('services').value.split('\n').filter(Boolean);
+            const titleAdjectives = ["Top-Rated", "Best", "Expert", "Trusted", "Reliable", "Local"];
+            if (!businessId || !businessName || locations.length === 0 || serviceNames.length === 0) {
+                alert("Please fill in all 4 boxes!");
+                button.disabled = false;
+                button.innerText = "Generate";
+                return;
+            }
+            const slugPromises = serviceNames.map(name => getShortSlug(name));
+            const allShortSlugs = await Promise.all(slugPromises);
+            const services = serviceNames.map((fullName, index) => ({
+                fullName,
+                slug: allShortSlugs[index]
+            }));
+            resultsBody.innerHTML = '';
+            let htmlToInject = '';
+            locations.forEach((locationStr, index) => {
+                const currentService = services[index % services.length];
+                const currentAdjective = titleAdjectives[index % titleAdjectives.length];
+                const loc = parseLocation(locationStr);
+                if (!loc) return;
+                const serviceSlug = currentService.slug;
+                const citySlug = slugify(loc.city);
+                const stateSlug = slugify(loc.state);
+                const slug = `${businessId}-${serviceSlug}-in-${citySlug}-${stateSlug}`;
+                const title = `${currentAdjective} ${currentService.fullName} in ${loc.city}, ${loc.state} | ${businessName}`;
+                htmlToInject += `<tr><td>${slug}</td><td>${title}</td></tr>`;
+            });
+            resultsBody.innerHTML = htmlToInject;
+            button.disabled = false;
+            button.innerText = "Generate";
+        }
+        document.getElementById('generateButton').addEventListener('click', generateSlugsAndTitles);
+    </script>
+</body>
+</html> 

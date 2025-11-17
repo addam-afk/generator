@@ -1,0 +1,8 @@
+{
+  "name": "generator",
+  "version": "1.0.0",
+  "description": "AI Slug Generator",
+  "engines": {
+    "node": "18.x"
+  }
+} 
