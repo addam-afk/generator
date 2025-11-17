@@ -12,8 +12,8 @@ export default async function handler(request, response) {
     }
 
     // 2. Get your secrets from the Vercel "Environment Variables"
-    const AI_API_URL = process.env.AI_API_URL;
-    const AI_API_KEY = process.env.AI_API_KEY;
+    const AI_API_URL = "https://agentrouter.org";
+    const AI_API_KEY = "sk-17No4iDhEm274pSxtSsTr9qM6Wz9w5ZUsDGzdXxUC4GBgjdg";
 
     // 3. This is the prompt we send to the AI
     const prompt = `
